@@ -353,25 +353,47 @@ let GEO = [];
 let zipIdx = {};  // "77150" -> [{prov, amp, tam}]
 
 async function loadGeo() {
-  try {
-    const url = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province_with_district_and_sub_district.json';
-    const r = await fetch(url);
-    GEO = await r.json();
-    buildZipIdx();
-    populateProv();
-    document.getElementById('addr-loading').classList.remove('show');
-    document.getElementById('f-prov').disabled = false;
-  } catch(e) {
-    document.getElementById('addr-loading').textContent = '⚠️ โหลดข้อมูลไม่สำเร็จ';
+  const URLS = [
+    'https://raw.githubusercontent.com/kongvut/thai-province-data/master/api/v1/province_with_amphure_tambon.json',
+    'https://cdn.jsdelivr.net/gh/kongvut/thai-province-data@master/api/v1/province_with_amphure_tambon.json',
+    'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province_with_district_and_sub_district.json',
+  ];
+  const loadEl = document.getElementById('addr-loading');
+  for (const url of URLS) {
+    try {
+      loadEl.textContent = '⏳ กำลังโหลดข้อมูลจังหวัด...';
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const raw = await r.json();
+      GEO = raw;
+      /* ── DEBUG: inspect first province keys ── */
+      if (GEO.length > 0) {
+        const p0 = GEO[0];
+        const ampKey = p0.amphure ? 'amphure' : p0.district ? 'district' : '???';
+        const amps0 = p0[ampKey] || [];
+        const tamKey = amps0[0]?.tambon ? 'tambon' : amps0[0]?.sub_district ? 'sub_district' : '???';
+        console.log('[GEO] loaded', GEO.length, 'provinces. ampKey='+ampKey, 'tamKey='+tamKey, 'sample zip=', (amps0[0]?.[tamKey]||[])[0]?.zip_code);
+      }
+      buildZipIdx();
+      populateProv();
+      loadEl.classList.remove('show');
+      loadEl.style.display = 'none';
+      document.getElementById('f-prov').disabled = false;
+      return; /* success */
+    } catch(e) {
+      console.warn('[GEO] failed', url, e.message);
+    }
   }
+  loadEl.textContent = '⚠️ โหลดข้อมูลไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+  loadEl.style.color = '#c0392b';
 }
 
 function buildZipIdx() {
   GEO.forEach(p => {
-    /* API latest uses "district" key, v1 uses "amphure" — handle both */
-    const amps = p.district || p.amphure || [];
+    // API latest uses "districts"/"sub_districts" (PLURAL)
+    const amps = p.districts || p.amphure || p.district || [];
     amps.forEach(a => {
-      const tams = a.sub_district || a.tambon || [];
+      const tams = a.sub_districts || a.tambon || a.sub_district || [];
       tams.forEach(t => {
         const z = String(t.zip_code);
         if (!zipIdx[z]) zipIdx[z] = [];
@@ -390,8 +412,8 @@ function populateProv() {
   });
 }
 
-function getAmps(prov) { return prov.district || prov.amphure || []; }
-function getTams(amp)  { return amp.sub_district || amp.tambon || []; }
+function getAmps(prov) { return prov.districts || prov.amphure || prov.district || []; }
+function getTams(amp)  { return amp.sub_districts || amp.tambon || amp.sub_district || []; }
 
 function setOpts(selId, items, placeholder, nameKey) {
   const sel = document.getElementById(selId);
@@ -415,7 +437,11 @@ function onZipInput() {
   zipEl.className = 'addr-input';
   if (z.length !== 5) { resetAmp(); resetTam(); return; }
   const hits = zipIdx[z];
-  if (!hits || hits.length === 0) { zipEl.className = 'addr-input err'; return; }
+  if (!hits || hits.length === 0) {
+    // If GEO not loaded yet, don't show error
+    if (GEO.length === 0) return;
+    zipEl.className = 'addr-input err'; return;
+  }
   zipEl.className = 'addr-input ok';
 
   const provIds = [...new Set(hits.map(h => h.prov.id))];
