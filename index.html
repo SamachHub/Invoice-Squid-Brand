@@ -132,7 +132,7 @@ input[type="date"].finput{cursor:pointer}
 /* number columns: nowrap */
 .dtbl td.r,.dtbl td.c{white-space:nowrap;font-size:8.5pt}
 .dtbl tbody tr:nth-child(even){background:var(--cream)}
-.dtbl tbody tr.bline td{color:var(--teal);font-size:9pt}
+.dtbl tbody tr.bline td{color:var(--teal);font-size:8pt;line-height:1.3}
 .dtbl tfoot td{border-bottom:none;padding-top:4pt;padding-bottom:4pt}
 .ssep{border-top:1.5pt solid var(--navy)!important}
 .trow td{font-size:10.5pt!important;font-weight:700!important;color:var(--navy)!important}
@@ -634,7 +634,7 @@ function renderInvoice() {
   d.rows.forEach(item=>{
     rn++;
     const hasBon=item.bqty>0 && item.btype;
-    const rs=hasBon?(item.btype==='แถมนอกบิล'?3:2):1;
+    const rs=1; // bonus items now use colspan, no rowspan needed
     const tr=document.createElement('tr');
     tr.innerHTML=`<td class="c" rowspan="${rs}" style="font-weight:700;font-size:10pt;color:#1b3d72">${rn}</td>
       <td>${item.name}</td>
@@ -643,16 +643,15 @@ function renderInvoice() {
       <td class="r" style="font-weight:600">${item.line>0?fmt(item.line):'—'}</td>`;
     tbody.appendChild(tr);
     if(hasBon){
+      // Bonus row: detail goes in รายละเอียดสินค้า column, other columns blank
+      const bonusLabel = item.btype === 'แถมนอกบิล' ? 'แถมนอกบิล' : 'แถม';
       const tr2=document.createElement('tr'); tr2.className='bline';
-      tr2.innerHTML=`<td></td><td style="font-style:italic">${item.name} (แถม)</td>
-        <td class="r">${item.bqty} ลัง</td><td class="r" style="font-style:italic;font-size:8.5pt">แถม</td><td class="r">—</td>`;
+      tr2.innerHTML=`<td></td>
+        <td colspan="4" style="font-style:italic;font-size:8.5pt;color:#2d6a4f;padding:3pt 8pt">
+          ↳ <strong>${bonusLabel}</strong>: ${item.name} จำนวน ${item.bqty} ลัง
+          ${item.btype==='แถมนอกบิล' ? '<span style="margin-left:8pt;font-size:7.5pt;color:#5a6378">(นอกบิล)</span>' : ''}
+        </td>`;
       tbody.appendChild(tr2);
-      if(item.btype==='แถมนอกบิล'){
-        const tr3=document.createElement('tr'); tr3.className='bline';
-        tr3.innerHTML=`<td></td><td style="font-style:italic">${item.name} (นอกบิล)</td>
-          <td class="r">1 ลัง</td><td class="r" style="font-style:italic;font-size:8.5pt">แถมนอกบิล</td><td class="r">—</td>`;
-        tbody.appendChild(tr3);
-      }
     }
   });
   const pad=Math.max(0,3-rn);
@@ -719,9 +718,50 @@ async function sendToSheets() {
 async function saveAndDownload() {
   renderInvoice();
   await sendToSheets();
-  html2pdf().set({margin:0,filename:'ใบแจ้งหนี้_'+dateToThai(v('f-date')).replace(/\s+/g,'_')+'.pdf',
-    image:{type:'jpeg',quality:.98},html2canvas:{scale:2,useCORS:true,logging:false},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(document.getElementById('inv')).save();
+
+  // Always generate PDF at full A4 size regardless of mobile scaling
+  const invEl = document.getElementById('inv');
+
+  // Temporarily remove any CSS transform (mobile scale) so html2canvas captures at true size
+  const prevTransform = invEl.style.transform;
+  const prevTransformOrigin = invEl.style.transformOrigin;
+  const prevMarginBottom = invEl.style.marginBottom;
+  invEl.style.transform = 'none';
+  invEl.style.transformOrigin = 'unset';
+  invEl.style.marginBottom = '0';
+
+  // Also make sure #view-preview is visible (needed for html2canvas)
+  const previewWasActive = document.getElementById('view-preview').classList.contains('active');
+  if (!previewWasActive) {
+    document.getElementById('view-preview').classList.add('active');
+    document.getElementById('view-form').classList.remove('active');
+  }
+
+  try {
+    await html2pdf().set({
+      margin: 0,
+      filename: 'ใบแจ้งหนี้_' + dateToThai(v('f-date')).replace(/\s+/g,'_') + '.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 3,          // high-res capture
+        useCORS: true,
+        logging: false,
+        width: 794,        // 210mm @ 96dpi
+        windowWidth: 794,
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(invEl).save();
+  } finally {
+    // Restore mobile transform
+    invEl.style.transform = prevTransform;
+    invEl.style.transformOrigin = prevTransformOrigin;
+    invEl.style.marginBottom = prevMarginBottom;
+    // Restore view state
+    if (!previewWasActive) {
+      document.getElementById('view-form').classList.add('active');
+      document.getElementById('view-preview').classList.remove('active');
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════
