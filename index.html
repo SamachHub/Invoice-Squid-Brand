@@ -89,7 +89,17 @@ input[type="date"].finput{cursor:pointer}
 .prev-bar-title{font-size:.9rem;font-weight:700;color:var(--navy);flex:1}
 .btn-dl-prev{display:flex;align-items:center;gap:7px;padding:8px 18px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:'Sarabun',sans-serif;font-size:.87rem;font-weight:700;cursor:pointer}
 .btn-dl-prev:hover{background:var(--navy2)}
-.prev-wrap{display:flex;justify-content:center;padding:24px 16px 40px}
+.prev-wrap{display:flex;justify-content:center;padding:24px 16px 40px;overflow-x:auto}
+/* Mobile: scale invoice to fit screen width */
+@media (max-width:900px){
+  .prev-wrap{padding:12px 0 32px;align-items:flex-start}
+  #inv{
+    width:210mm;
+    transform-origin:top left;
+    transform:scale(var(--inv-scale,0.42));
+    margin-bottom:calc((297mm * var(--inv-scale,0.42)) - 297mm);
+  }
+}
 
 /* ── INVOICE DOC ── */
 #inv{width:210mm;min-height:297mm;background:#fff;font-family:'Sarabun',sans-serif;font-size:10.5pt;color:#1a1f2e;display:flex;flex-direction:column;box-shadow:0 4px 24px rgba(0,0,0,.13)}
@@ -115,7 +125,12 @@ input[type="date"].finput{cursor:pointer}
 .dtbl th{padding:6pt 10pt;font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left;border:none}
 .dtbl th.r,.dtbl td.r{text-align:right}
 .dtbl td.c{text-align:center}
-.dtbl td{padding:6pt 10pt;font-size:9.5pt;border-bottom:.5pt solid var(--g2);vertical-align:top}
+.dtbl td{padding:5pt 8pt;font-size:9.5pt;border-bottom:.5pt solid var(--g2);vertical-align:top;
+  word-break:break-word;overflow-wrap:anywhere;hyphens:auto}
+/* product name column: allow shrink */
+.dtbl td:nth-child(2){font-size:9pt;line-height:1.35;word-break:break-word}
+/* number columns: nowrap */
+.dtbl td.r,.dtbl td.c{white-space:nowrap;font-size:8.5pt}
 .dtbl tbody tr:nth-child(even){background:var(--cream)}
 .dtbl tbody tr.bline td{color:var(--teal);font-size:9pt}
 .dtbl tfoot td{border-bottom:none;padding-top:4pt;padding-bottom:4pt}
@@ -178,10 +193,10 @@ input[type="date"].finput{cursor:pointer}
       </div>
     </div>
     <div class="ag2">
-      <div class="arow"><span class="sm-lbl">อำเภอ / เขต</span>
+      <div class="arow"><span class="sm-lbl" data-addr-amp>อำเภอ / เขต</span>
         <select class="finput" id="f-amp" onchange="onAmpChange()" disabled><option value="">-- เลือกอำเภอ --</option></select>
       </div>
-      <div class="arow"><span class="sm-lbl">ตำบล / แขวง</span>
+      <div class="arow"><span class="sm-lbl" data-addr-tam>ตำบล / แขวง</span>
         <select class="finput" id="f-tam" onchange="onTamChange()" disabled><option value="">-- เลือกตำบล --</option></select>
       </div>
     </div>
@@ -260,16 +275,16 @@ input[type="date"].finput{cursor:pointer}
         </div>
         <table class="dtbl">
           <thead><tr>
-            <th style="width:28pt">#</th><th>รายละเอียดสินค้า</th>
-            <th class="r" style="width:70pt">จำนวน</th>
-            <th class="r" style="width:70pt">ราคา/หน่วย</th>
-            <th class="r" style="width:80pt">จำนวนเงิน</th>
+            <th style="width:22pt;white-space:nowrap">#</th><th style="min-width:120pt">รายละเอียดสินค้า</th>
+            <th class="r" style="width:55pt;white-space:nowrap">จำนวน</th>
+            <th class="r" style="width:60pt;white-space:nowrap">ราคา/หน่วย</th>
+            <th class="r" style="width:65pt;white-space:nowrap">จำนวนเงิน</th>
           </tr></thead>
           <tbody id="d-tbody"></tbody>
           <tfoot>
-            <tr><td colspan="3"></td><td class="r ssep" style="font-size:8.5pt;color:#5a6378;font-weight:600">ยอดก่อนภาษี</td><td class="r ssep" id="d-pre" style="font-size:9pt;font-weight:600">—</td></tr>
-            <tr><td colspan="3"></td><td class="r" id="d-vat-lbl" style="font-size:8.5pt;color:#5a6378;font-weight:600">ภาษีมูลค่าเพิ่ม 7%</td><td class="r" id="d-vat" style="font-size:9pt;font-weight:600">—</td></tr>
-            <tr class="trow"><td colspan="3"></td><td class="r">ยอดรวมสุทธิ</td><td class="r" id="d-total">—</td></tr>
+            <tr><td colspan="3"></td><td class="r ssep" style="font-size:8.5pt;color:#5a6378;font-weight:600">ยอดรวมก่อน VAT</td><td class="r ssep" id="d-pre" style="font-size:9pt;font-weight:600">—</td></tr>
+            <tr><td colspan="3"></td><td class="r" id="d-vat-lbl" style="font-size:8.5pt;color:#5a6378;font-weight:600">ภาษีมูลค่าเพิ่ม (VAT) 7%</td><td class="r" id="d-vat" style="font-size:9pt;font-weight:600">—</td></tr>
+            <tr class="trow"><td colspan="3"></td><td class="r">ยอดรวมสุทธิ (รวม VAT)</td><td class="r" id="d-total">—</td></tr>
           </tfoot>
         </table>
         <div class="dbot">
@@ -429,6 +444,7 @@ function onProvChange(fz) {
   setOpts('f-amp', amps, '-- เลือกอำเภอ --');
   document.getElementById('f-amp').disabled = false;
   if (amps.length===1 && fz) { document.getElementById('f-amp').value=amps[0].id; onAmpChange(fz); }
+  updateAddrLabels();
   dirty();
 }
 function onAmpChange(fz) {
@@ -458,15 +474,28 @@ function onTamChange() {
   if (tam?.zip_code) { const z=document.getElementById('f-zip'); z.value=tam.zip_code; z.className='finput ok'; }
   dirty();
 }
+function updateAddrLabels() {
+  const proS = document.getElementById('f-prov');
+  const provName = proS.options[proS.selectedIndex]?.text || '';
+  const isBKK = provName === 'กรุงเทพมหานคร';
+  // Update the sm-lbl spans for amp and tam
+  const ampLabels = document.querySelectorAll('[data-addr-amp]');
+  const tamLabels = document.querySelectorAll('[data-addr-tam]');
+  ampLabels.forEach(el => el.textContent = isBKK ? 'เขต' : 'อำเภอ / เขต');
+  tamLabels.forEach(el => el.textContent = isBKK ? 'แขวง' : 'ตำบล / แขวง');
+}
+
 function getAddrLine2() {
   const zip=document.getElementById('f-zip').value.trim();
   const tamS=document.getElementById('f-tam');
   const ampS=document.getElementById('f-amp');
   const proS=document.getElementById('f-prov');
+  const provName = proS.options[proS.selectedIndex]?.text || '';
+  const isBKK = provName === 'กรุงเทพมหานคร';
   const parts=[];
-  if (tamS.value) parts.push('ต.'+tamS.options[tamS.selectedIndex]?.text);
-  if (ampS.value) parts.push('อ.'+ampS.options[ampS.selectedIndex]?.text);
-  if (proS.value) parts.push('จ.'+proS.options[proS.selectedIndex]?.text);
+  if (tamS.value) parts.push((isBKK?'แขวง':'ต.')+tamS.options[tamS.selectedIndex]?.text);
+  if (ampS.value) parts.push((isBKK?'เขต':'อ.')+ampS.options[ampS.selectedIndex]?.text);
+  if (proS.value) parts.push((isBKK?'':'จ.')+provName);
   if (zip) parts.push(zip);
   return parts.join(' ');
 }
@@ -628,7 +657,7 @@ function renderInvoice() {
   });
   const pad=Math.max(0,3-rn);
   for(let i=0;i<pad;i++){const tr=document.createElement('tr');tr.innerHTML='<td colspan="5" style="height:20pt"></td>';tbody.appendChild(tr);}
-  $t('d-vat-lbl',`ภาษีมูลค่าเพิ่ม ${d.vatPct}%`);
+  $t('d-vat-lbl',`ภาษีมูลค่าเพิ่ม (VAT) ${d.vatPct}%`);
   $t('d-pre', d.sub>0?fmt(d.pre):'—');
   $t('d-vat', d.sub>0?fmt(d.vatAmt):'—');
   $t('d-total', d.sub>0?fmt(d.sub):'—');
@@ -642,7 +671,26 @@ function showPreview() {
   document.getElementById('view-form').classList.remove('active');
   document.getElementById('view-preview').classList.add('active');
   window.scrollTo(0,0);
+  setInvScale();
 }
+function setInvScale() {
+  const vw = window.innerWidth;
+  if (vw < 900) {
+    const mmToPx = 3.7795; // 1mm = 3.7795px at 96dpi
+    const invPx = 210 * mmToPx; // 210mm in px
+    const scale = (vw - 0) / invPx;
+    document.documentElement.style.setProperty('--inv-scale', scale.toFixed(4));
+    // set wrapper height = scaled invoice height
+    const invEl = document.getElementById('inv');
+    const scaledH = 297 * mmToPx * scale;
+    invEl.parentElement.style.minHeight = scaledH + 'px';
+  } else {
+    document.documentElement.style.setProperty('--inv-scale', '1');
+  }
+}
+window.addEventListener('resize', () => {
+  if (document.getElementById('view-preview').classList.contains('active')) setInvScale();
+});
 function showForm() {
   document.getElementById('view-preview').classList.remove('active');
   document.getElementById('view-form').classList.add('active');
