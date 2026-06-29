@@ -109,9 +109,14 @@ input[type="date"].finput{cursor:pointer}
 .dh-co{font-size:13pt;font-weight:700;margin-bottom:3pt}
 .dh-sub{font-size:8.5pt;opacity:.82;line-height:1.55}
 /* Force all text in header band to white — no blue hyperlinks */
-.dh a, .dh *{color:#fff !important;text-decoration:none !important}
-/* Footer band — same */
-.dfoot a, .dfoot *{color:rgba(255,255,255,.55) !important;text-decoration:none !important}
+/* Header: force all text/links white EXCEPT the badge (which has navy text on white bg) */
+.dh-co, .dh-co *{color:#fff !important;text-decoration:none !important}
+.dh-sub, .dh-sub *{color:#fff !important;text-decoration:none !important}
+.dh-sub a{color:#fff !important;text-decoration:none !important}
+/* Badge keeps its own navy color on white background */
+.dh-badge{color:var(--navy) !important}
+/* Footer band */
+.dfoot, .dfoot *{color:rgba(255,255,255,.7) !important;text-decoration:none !important}
 .dh-badge{background:#fff;color:var(--navy);font-size:16pt;font-weight:700;padding:6pt 14pt;border-radius:6pt;white-space:nowrap}
 .db{padding:9mm 13mm;flex:1;display:flex;flex-direction:column;gap:7mm}
 .dmeta{display:grid;grid-template-columns:1fr auto;gap:8mm;align-items:start}
@@ -726,48 +731,83 @@ async function saveAndDownload() {
   renderInvoice();
   await sendToSheets();
 
-  // Always generate PDF at full A4 size regardless of mobile scaling
   const invEl = document.getElementById('inv');
+  const filename = 'ใบแจ้งหนี้_' + dateToThai(v('f-date')).replace(/\s+/g,'_') + '.pdf';
 
-  // Temporarily remove any CSS transform (mobile scale) so html2canvas captures at true size
-  const prevTransform = invEl.style.transform;
-  const prevTransformOrigin = invEl.style.transformOrigin;
-  const prevMarginBottom = invEl.style.marginBottom;
+  // ── Step 1: Save all original inline styles ──
+  const savedStyles = {
+    transform: invEl.style.transform,
+    transformOrigin: invEl.style.transformOrigin,
+    marginBottom: invEl.style.marginBottom,
+    width: invEl.style.width,
+    minHeight: invEl.style.minHeight,
+    position: invEl.style.position,
+  };
+
+  // ── Step 2: Force #inv to exact A4 pixel size, no transform ──
   invEl.style.transform = 'none';
-  invEl.style.transformOrigin = 'unset';
+  invEl.style.transformOrigin = 'top left';
   invEl.style.marginBottom = '0';
+  invEl.style.width = '794px';      // 210mm @ 96dpi
+  invEl.style.minHeight = '1123px'; // 297mm @ 96dpi
+  invEl.style.position = 'relative';
 
-  // Also make sure #view-preview is visible (needed for html2canvas)
-  const previewWasActive = document.getElementById('view-preview').classList.contains('active');
-  if (!previewWasActive) {
-    document.getElementById('view-preview').classList.add('active');
-    document.getElementById('view-form').classList.remove('active');
-  }
+  // ── Step 3: Ensure element is in DOM & visible ──
+  const previewView = document.getElementById('view-preview');
+  const formView = document.getElementById('view-form');
+  const wasPreview = previewView.classList.contains('active');
+
+  // Move #inv temporarily to body so it renders regardless of view state
+  const originalParent = invEl.parentElement;
+  const placeholder = document.createElement('div');
+  originalParent.insertBefore(placeholder, invEl);
+
+  const tempWrap = document.createElement('div');
+  tempWrap.style.cssText = 'position:fixed;top:-9999px;left:0;width:794px;background:#fff;z-index:-1';
+  tempWrap.appendChild(invEl);
+  document.body.appendChild(tempWrap);
 
   try {
-    await html2pdf().set({
-      margin: 0,
-      filename: 'ใบแจ้งหนี้_' + dateToThai(v('f-date')).replace(/\s+/g,'_') + '.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 3,          // high-res capture
-        useCORS: true,
-        logging: false,
-        width: 794,        // 210mm @ 96dpi
-        windowWidth: 794,
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(invEl).save();
+    await html2pdf()
+      .set({
+        margin: 0,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          width: 794,
+          windowWidth: 794,
+          scrollX: 0,
+          scrollY: 0,
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait',
+          compress: true,
+        },
+        pagebreak: { mode: ['avoid-all'] },
+      })
+      .from(invEl)
+      .save();
   } finally {
-    // Restore mobile transform
-    invEl.style.transform = prevTransform;
-    invEl.style.transformOrigin = prevTransformOrigin;
-    invEl.style.marginBottom = prevMarginBottom;
+    // ── Step 4: Restore everything ──
+    originalParent.insertBefore(invEl, placeholder);
+    placeholder.remove();
+    document.body.removeChild(tempWrap);
+
+    // Restore inline styles
+    Object.entries(savedStyles).forEach(([k,v2]) => { invEl.style[k] = v2; });
+
     // Restore view state
-    if (!previewWasActive) {
-      document.getElementById('view-form').classList.add('active');
-      document.getElementById('view-preview').classList.remove('active');
+    if (wasPreview) {
+      previewView.classList.add('active');
+      formView.classList.remove('active');
     }
+    // Re-apply mobile scale if needed
+    setInvScale();
   }
 }
 
