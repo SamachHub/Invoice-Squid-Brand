@@ -740,11 +740,7 @@ async function saveAndDownload() {
   const addrLine1 = d.addr.split('\n')[0] || '';
   const addrLine2 = getAddrLine2();
   const taxidHTML = d.taxid
-    ? `<div style="display:inline-flex;align-items:center;gap:5pt;margin-top:5pt;
-         background:#f2f4f7;border:1pt solid #e4e8ef;border-radius:4pt;
-         padding:2pt 7pt;font-size:8.5pt;color:#5a6378">
-         <span style="font-size:7.5pt;font-weight:700;color:#1b3d72">เลขผู้เสียภาษี</span>
-         <span>${d.taxid}</span></div>` : '';
+    ? `<div style="margin-top:6pt;padding:3pt 8pt;background:#f2f4f7;border:1pt solid #e4e8ef;border-radius:4pt;font-size:8.5pt;color:#5a6378;display:block"><span style="font-size:7.5pt;font-weight:700;color:#1b3d72">เลขผู้เสียภาษี</span> ${d.taxid}</div>` : '';
 
   // Re-use rendered tbody from invoice doc
   const tbody = document.getElementById('d-tbody');
