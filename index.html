@@ -686,12 +686,13 @@ function renderInvoice() {
 /* ═══════════════════════════════════════════════
    VIEWS
 ═══════════════════════════════════════════════ */
-function showPreview() {
+async function showPreview() {
   renderInvoice();
   document.getElementById('view-form').classList.remove('active');
   document.getElementById('view-preview').classList.add('active');
   window.scrollTo(0,0);
   setInvScale();
+  await sendToSheets('preview');
 }
 function setInvScale() {
   const vw = window.innerWidth;
@@ -720,25 +721,57 @@ function showForm() {
    GOOGLE SHEETS
 ═══════════════════════════════════════════════ */
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyeJNzpQp8KkwEoj_jc-SK1YGtxKx7-1UrUOaQnV4n3RS3RFYOgojk2lFVmiesP7F2EXQ/exec';
-async function sendToSheets() {
+async function sendToSheets(source) {
   if (!GAS_URL) return;
-  const st=document.getElementById('gs-status');
-  st.className='gs-status loading'; st.textContent='⏳ กำลังส่งข้อมูลไปยัง Google Sheet...';
-  const d=buildData();
+  const st = document.getElementById('gs-status');
+  st.className = 'gs-status loading';
+  st.textContent = '⏳ กำลังบันทึกข้อมูล...';
+  const d = buildData();
+  const signer = v('f-signer') || '';
+  const action = source === 'preview' ? 'Preview' : 'Download PDF';
+
+  const itemDetail = d.rows.map(r => {
+    let line = `${r.name} x${r.qty}ลัง`;
+    if (r.price > 0) line += ` ราคา${fmt(r.price)}`;
+    if (r.bqty && r.btype) line += ` [${r.btype}:${r.bqty}ลัง]`;
+    return line;
+  }).join(' | ');
+
+  const payload = JSON.stringify({
+    action,
+    date:        dateToThai(d.date),
+    customer:    d.cname,
+    address:     [d.addr.split('\n')[0], getAddrLine2()].filter(Boolean).join(' '),
+    taxId:       d.taxid,
+    signer,
+    items:       itemDetail,
+    itemCount:   String(d.rows.length),
+    subtotal:    fmt(d.pre),
+    vat:         fmt(d.vatAmt),
+    total:       fmt(d.sub),
+    paymentTerm: d.pay,
+  });
+
   try {
-    await fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({date:dateToThai(d.date),customer:d.cname,address:d.addr.replace('\n',' '),
-        taxId:d.taxid,items:d.rows.map(r=>`${r.name} x${r.qty}ลัง`).join(', '),
-        subtotal:fmt(d.pre),vat:fmt(d.vatAmt),total:fmt(d.sub)})});
-    st.className='gs-status ok'; st.textContent='✅ บันทึกข้อมูลไปยัง Google Sheet เรียบร้อย';
+    // ใช้ POST + Content-Type: text/plain เพื่อหลีกเลี่ยง CORS preflight
+    // Apps Script รับได้ผ่าน e.postData.contents
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload,
+    });
+    st.className = 'gs-status ok';
+    st.textContent = `✅ บันทึกข้อมูลไปยัง Google Sheet เรียบร้อย (${action})`;
   } catch(e) {
-    st.className='gs-status err'; st.textContent='❌ ส่งไม่สำเร็จ: '+e.message;
+    st.className = 'gs-status err';
+    st.textContent = '❌ บันทึกไม่สำเร็จ: ' + e.message;
   }
 }
 
 async function saveAndDownload() {
   renderInvoice();
-  await sendToSheets();
+  await sendToSheets('download');
 
   const d = buildData();
   const thaiDate = dateToThai(d.date);
