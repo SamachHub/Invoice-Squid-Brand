@@ -228,6 +228,14 @@ input[type="date"].finput{cursor:pointer}
     </div>
   </div>
 
+  <div class="fsec">
+    <div class="sh">ผู้แจ้งหนี้</div>
+    <div class="frow">
+      <label>ชื่อผู้แจ้งหนี้</label>
+      <input type="text" id="f-signer" class="finput" placeholder="กรอกชื่อผู้แจ้งหนี้" oninput="dirty()">
+    </div>
+  </div>
+
   <div class="btn-row">
     <button class="btn-preview" onclick="showPreview()">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -305,7 +313,7 @@ input[type="date"].finput{cursor:pointer}
             <p>แฟ็กซ์ใบโอนเงินที่: 02-6394886</p>
           </div>
           <div class="dsig">
-            <div class="dsig-name">อนันต์</div>
+            <div class="dsig-name" id="d-signer">&nbsp;</div>
             <div class="dsig-box"></div>
             <div class="dsig-lbl">ลงชื่อผู้แจ้งหนี้</div>
             <div class="dsig-date" id="d-sig-date"></div>
@@ -668,6 +676,7 @@ function renderInvoice() {
   });
   const pad=Math.max(0,3-rn);
   for(let i=0;i<pad;i++){const tr=document.createElement('tr');tr.innerHTML='<td colspan="5" style="height:20pt"></td>';tbody.appendChild(tr);}
+  $t('d-signer', v('f-signer') || '');
   $t('d-vat-lbl',`ภาษีมูลค่าเพิ่ม (VAT) ${d.vatPct}%`);
   $t('d-pre', d.sub>0?fmt(d.pre):'—');
   $t('d-vat', d.sub>0?fmt(d.vatAmt):'—');
@@ -816,7 +825,7 @@ tfoot td{border-bottom:none;padding-top:4pt;padding-bottom:4pt}
          letter-spacing:.8px;color:#2d6a4f;margin-bottom:4pt}
 .dbank p{font-size:8.5pt;color:#5a6378;line-height:1.7}
 .dsig{text-align:center;min-width:140pt}
-.dsig-name{font-size:10pt;font-weight:700;color:#1b3d72;margin-bottom:4pt}
+.dsig-name{font-size:10pt;font-weight:700;color:#1b3d72;margin-bottom:4pt;min-height:14pt}
 .dsig-box{height:28pt;border-bottom:1pt solid #b8bfca;margin-bottom:4pt}
 .dsig-lbl,.dsig-date{font-size:8pt;color:#5a6378}
 .dsig-date{margin-top:6pt}
@@ -874,7 +883,7 @@ tfoot td{border-bottom:none;padding-top:4pt;padding-bottom:4pt}
         <p>แฟ็กซ์ใบโอนเงินที่: 02-6394886</p>
       </div>
       <div class="dsig">
-        <div class="dsig-name">อนันต์</div>
+        <div class="dsig-name">${v('f-signer') || ''}</div>
         <div class="dsig-box"></div>
         <div class="dsig-lbl">ลงชื่อผู้แจ้งหนี้</div>
         <div class="dsig-date">วันที่ ${thaiDate}</div>
