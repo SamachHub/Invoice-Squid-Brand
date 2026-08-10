@@ -554,7 +554,13 @@ function addItem() {
     <div class="qty-bonus-row">
       <div class="frow" style="gap:4px">
         <span class="sm-lbl">จำนวนแถม</span>
-        <input type="number" inputmode="numeric" pattern="[0-9]*" class="finput" id="i-bqty-${uid}" min="0" placeholder="0" oninput="dirty()">
+        <div style="display:grid;grid-template-columns:1fr 90px;gap:6px">
+          <input type="number" inputmode="numeric" pattern="[0-9]*" class="finput" id="i-bqty-${uid}" min="0" placeholder="0" oninput="dirty()">
+          <select class="finput" id="i-bunit-${uid}" onchange="dirty()" style="padding:9px 8px">
+            <option value="ลัง">ลัง</option>
+            <option value="ขวด">ขวด</option>
+          </select>
+        </div>
       </div>
       <div class="frow" style="gap:4px">
         <span class="sm-lbl">ประเภทแถม</span>
@@ -624,10 +630,11 @@ function buildData() {
     const qty=n('i-qty-'+id);
     const price=n('i-price-'+id);
     const bqty=parseInt(document.getElementById('i-bqty-'+id)?.value)||0;
+    const bunit=v('i-bunit-'+id)||'ลัง';
     const btype=v('i-btype-'+id);
     const line=qty*price;
     sub+=line;
-    rows.push({name:prod.name, qty, price, bqty, btype, line});
+    rows.push({name:prod.name, qty, price, bqty, bunit, btype, line});
   });
   const vatPct=parseFloat(v('f-vat'))||0;
   const pre=sub>0?sub/(1+vatPct/100):0;
@@ -668,7 +675,7 @@ function renderInvoice() {
         <td style="font-size:9.5pt;color:#2d6a4f;font-style:italic">
           ${item.name} <strong style="font-style:normal">(${bonusLabel})</strong>
         </td>
-        <td class="r" style="font-size:9.5pt;color:#2d6a4f;white-space:nowrap">${item.bqty} ลัง</td>
+        <td class="r" style="font-size:9.5pt;color:#2d6a4f;white-space:nowrap">${item.bqty} ${item.bunit||'ลัง'}</td>
         <td class="r" style="font-size:9.5pt;color:#2d6a4f">—</td>
         <td class="r" style="font-size:9.5pt;color:#2d6a4f">—</td>`;
       tbody.appendChild(tr2);
@@ -733,7 +740,7 @@ async function sendToSheets(source) {
   const itemDetail = d.rows.map(r => {
     let line = `${r.name} x${r.qty}ลัง`;
     if (r.price > 0) line += ` ราคา${fmt(r.price)}`;
-    if (r.bqty && r.btype) line += ` [${r.btype}:${r.bqty}ลัง]`;
+    if (r.bqty && r.btype) line += ` [${r.btype}:${r.bqty}${r.bunit||'ลัง'}]`;
     return line;
   }).join(' | ');
 
