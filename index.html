@@ -366,6 +366,19 @@ const GROUPS = [
   { label:'อื่นๆ', ids:[20] },
 ];
 
+function buildBonusProductOptions() {
+  let h = '<option value="">-- ไม่ระบุ (ใช้สินค้าเดียวกัน) --</option>';
+  GROUPS.forEach(g => {
+    h += `<optgroup label="${g.label}">`;
+    g.ids.forEach(id => {
+      const p = PRODUCTS.find(x => x.id === id);
+      if (p) h += `<option value="${p.id}">${p.name}</option>`;
+    });
+    h += '</optgroup>';
+  });
+  return h;
+}
+
 function buildProductOptions() {
   let html = '<option value="">-- เลือกสินค้า --</option>';
   GROUPS.forEach(g => {
@@ -553,6 +566,12 @@ function addItem() {
     <!-- แถม -->
     <div class="qty-bonus-row">
       <div class="frow" style="gap:4px">
+        <span class="sm-lbl">สินค้าที่แถม</span>
+        <select class="prod-select" id="i-bprod-${uid}" onchange="dirty()">
+          ${buildBonusProductOptions()}
+        </select>
+      </div>
+      <div class="frow" style="gap:4px">
         <span class="sm-lbl">จำนวนแถม</span>
         <div style="display:grid;grid-template-columns:1fr 90px;gap:6px">
           <input type="number" inputmode="numeric" pattern="[0-9]*" class="finput" id="i-bqty-${uid}" min="0" placeholder="0" oninput="dirty()">
@@ -632,6 +651,9 @@ function buildData() {
     const bqty=parseInt(document.getElementById('i-bqty-'+id)?.value)||0;
     const bunit=v('i-bunit-'+id)||'ลัง';
     const btype=v('i-btype-'+id);
+    const bprodId=parseInt(document.getElementById('i-bprod-'+id)?.value)||0;
+    const bprodObj=PRODUCTS.find(p=>p.id===bprodId);
+    const bprodName=bprodObj?bprodObj.name:'';
     const line=qty*price;
     sub+=line;
     rows.push({name:prod.name, qty, price, bqty, bunit, btype, line});
@@ -673,7 +695,7 @@ function renderInvoice() {
       tr2.innerHTML = `
         <td class="c" style="color:#2d6a4f;font-size:9.5pt"></td>
         <td style="font-size:9.5pt;color:#2d6a4f;font-style:italic">
-          ${item.name} <strong style="font-style:normal">(${bonusLabel})</strong>
+          ${item.bprodName||item.name} <strong style="font-style:normal">(${bonusLabel})</strong>
         </td>
         <td class="r" style="font-size:9.5pt;color:#2d6a4f;white-space:nowrap">${item.bqty} ${item.bunit||'ลัง'}</td>
         <td class="r" style="font-size:9.5pt;color:#2d6a4f">—</td>
@@ -740,7 +762,7 @@ async function sendToSheets(source) {
   const itemDetail = d.rows.map(r => {
     let line = `${r.name} x${r.qty}ลัง`;
     if (r.price > 0) line += ` ราคา${fmt(r.price)}`;
-    if (r.bqty && r.btype) line += ` [${r.btype}:${r.bqty}${r.bunit||'ลัง'}]`;
+    if (r.bqty && r.btype) line += ` [${r.btype}:${r.bprodName||'เดิม'} ${r.bqty}${r.bunit||'ลัง'}]`;
     return line;
   }).join(' | ');
 
